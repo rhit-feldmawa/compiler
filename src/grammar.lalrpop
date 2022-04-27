@@ -1,0 +1,200 @@
+use std::str::FromStr;
+use lalrpop_util::ParseError;
+use crate::ast::{Program, WhileStatement, Var, Param, CompoundStatement, IfStatement, IdentifierFollow, Expression, FunctionCall, Operator, Statement, FunctionDeclaration, VarDeclaration, IdentifierType};
+
+grammar;
+
+pub Program: Box<Program> = {
+    <v: VarDeclaration*> <f:FunDeclaration*> => Box::new(Program {
+        var_declarations: v,
+        fun_declarations: f
+    })
+}
+
+VarDeclaration: Box<VarDeclaration> = {
+    <t:IdentifierType> <i:Identifier> ";" =>
+        Box::new(VarDeclaration::VarDeclaration(t, i)),
+    <t:IdentifierType> <i:Identifier> "[" <s:Num> "];" =>
+        Box::new(VarDeclaration::ArrDeclaration(t, i, s))
+}
+
+FunDeclaration: Box<FunctionDeclaration> = {
+    <r:IdentifierType> <n:Identifier> "(" <p: Comma<Param>> ")" <c:CompoundStatement> =>
+        Box::new(FunctionDeclaration {
+            return_type: r,
+            function_name: n,
+            params: p,
+            body: c
+        })
+}
+
+Param: Box<Param> = {
+    <t:IdentifierType> <i:Identifier> =>
+        Box::new(Param::Var(t, i)),
+    <t:IdentifierType> <i:Identifier> "[]" =>
+        Box::new(Param::ArrVar(t, i))
+}
+
+Statement: Box<Statement> = {
+    ";" => Box::new(Statement::EmptyStatement),
+    <e:Expression> ";" => Box::new(Statement::Expression(e)),
+    <c:CompoundStatement> => Box::new(Statement::CompoundStatement(c)),
+    <i:IfStatement> => Box::new(Statement::IfStatement(i)),
+    <w:WhileStatement> => Box::new(Statement::WhileStatement(w)),
+    "return" <e:Expression> ";" => Box::new(Statement::ReturnStatement(e))
+}
+
+StatementWithElse: Box<Statement> = {
+    ";" => Box::new(Statement::EmptyStatement),
+    <e:Expression> ";" => Box::new(Statement::Expression(e)),
+    <c:CompoundStatement> => Box::new(Statement::CompoundStatement(c)),
+    <i:IfStatementWithElse> => Box::new(Statement::IfStatement(i)),
+    <w:WhileStatementWithElse> => Box::new(Statement::WhileStatement(w)),
+    "return" <e:Expression> ";" => Box::new(Statement::ReturnStatement(e))
+}
+
+IfStatementWithElse: Box<IfStatement> = {
+    "if" "(" <e:Expression> ")" <s:StatementWithElse> "else" <s2:Statement> =>
+        Box::new(IfStatement::IfElseStmt(e, s, s2))
+}
+
+CompoundStatement: Box<CompoundStatement> = {
+    "{" <d:VarDeclaration*> <s:Statement*> "}" => Box::new(CompoundStatement {
+        declarations: d,
+        statements: s
+    })
+}
+
+IfStatement: Box<IfStatement> = {
+    "if" "(" <e:Expression> ")" <c:CompoundStatement> <f:IfFollow?> => match f {
+        None => Box::new(IfStatement::IfStmt(e, c)),
+        Some(s2) => Box::new(IfStatement::IfElseStmt(e, c, s2))
+    } 
+}
+
+IfFollow: Box<CompoundStatement> = {
+    "else" <s:CompoundStatement> => s
+}
+
+WhileStatement: Box<WhileStatement> = {
+    "while" "(" <e:Expression> ")" <s:Statement> => Box::new(WhileStatement {
+        condition: e,
+        statement: s
+    })
+}
+
+// Expression: Box<Expression> = {
+//     <v:Var> "=" <e:Expression> => Box::new(Expression::Assignment(v, e)),
+//     <s:SimpleExpression> => s
+// }
+pub Expression: Box<Expression> = {
+    <i:Identifier> <f:IdentifierFollow?> "=" <e:Expression> =>? match f {
+        None => Ok(Box::new(Expression::Assignment(Box::new(Var::Var(i)), e))),
+        Some(f2) => match *f2 {
+            IdentifierFollow::ArrayAccess(index) => Ok(Box::new(Expression::Assignment(Box::new(Var::ArrayAccess(i, index)), e))),
+            IdentifierFollow::FunctionCall(args) => Err(ParseError::User {
+                error: "unexpected function call"
+            })
+        }
+    },
+    <s:SimpleExpression> => s
+}
+
+SimpleExpression: Box<Expression> = Tier<ExprOp, Summand>;
+
+ExprOp: Operator = {
+    "<" => Operator::Lt,
+    "<=" => Operator::Le,
+    ">" => Operator::Gt,
+    ">=" => Operator::Ge,
+    "==" => Operator::Eq,
+    "!=" => Operator::Ne
+}
+
+Summand: Box<Expression> = Tier<SummandOp, Factor>;
+
+SummandOp: Operator = {
+    "+" => Operator::Add,
+    "-" => Operator::Sub,
+}
+
+Factor: Box<Expression> = Tier<FactorOp, Term>;
+
+FactorOp: Operator = {
+    "*" => Operator::Mul,
+    "/" => Operator::Div,
+}
+
+// Term: Box<Expression> = {
+//     "(" <e:Expression> ")" => e,
+//     <v:Var> => Box::new(Expression::Var(v)),
+//     <f: FunctionCall> => Box::new(Expression::Call(f)),
+//     <n: Num> => Box::new(Expression::IntegerLiteral(n))
+// }
+
+Term: Box<Expression> = {
+    "(" <e:Expression> ")" => e,
+    <i: Identifier> <f: IdentifierFollow?> => match f {
+        None => Box::new(Expression::Var(Box::new(Var::Var(i)))),
+        Some(f2) => match *f2 {
+            IdentifierFollow::FunctionCall(args) => Box::new(Expression::Call(Box::new(FunctionCall {
+                name: i,
+                args: args
+            }))),
+            IdentifierFollow::ArrayAccess(e) => Box::new(Expression::Var(Box::new(Var::ArrayAccess(i, e))))
+        }
+    },
+    <n: Num> => Box::new(Expression::IntegerLiteral(n))
+}
+
+
+IdentifierFollow: Box<IdentifierFollow> = {
+    "["<e:Expression>"]" => Box::new(IdentifierFollow::ArrayAccess(e)),
+    "("<a:Comma<Expression>>")" => Box::new(IdentifierFollow::FunctionCall(a))
+}
+
+FunctionCall: Box<FunctionCall> = {
+    <n:Identifier> <a: Comma<Expression>> => Box::new(FunctionCall {
+        name: n,
+        args: a
+    })
+}
+
+IdentifierType: Box<IdentifierType> = {
+    "int" => Box::new(IdentifierType::Int),
+    <l:@L> "void" => {
+        println!("{}", l);
+        Box::new(IdentifierType::Void)
+    }
+};
+
+Identifier: String = {
+    r"[a-zA-Z][a-zA-Z0-9]*" => <>.to_string()
+}
+
+Num: i32 = {
+    <s:r"[0-9]+"> => i32::from_str(s).unwrap()
+};
+
+
+Tier<Op,NextTier>: Box<Expression> = {
+    Tier<Op,NextTier> Op NextTier => Box::new(Expression::Operation(<>)),
+    NextTier
+};
+
+// Comma<T>: Vec<T> = {
+//     <mut v:(<T> ",")*> <e:T> => {
+//             v.push(e);
+//             v
+//         }
+// };
+
+Comma<T>: Vec<T> = {
+    <mut v:(<T> ",")*> <e:T?> => match e {
+        None => v,
+        Some(e) => {
+            v.push(e);
+            v
+        }
+    }
+};
