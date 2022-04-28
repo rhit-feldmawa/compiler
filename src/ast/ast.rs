@@ -50,8 +50,8 @@ pub enum VarDeclaration {
 
 #[derive(PartialEq, Debug)]
 pub enum IfStatement {
-    IfStmt(Box<Expression>, Box<CompoundStatement>),
-    IfElseStmt(Box<Expression>, Box<CompoundStatement>, Box<CompoundStatement>)
+    IfStmt(Box<Expression>, Box<Statement>),
+    IfElseStmt(Box<Expression>, Box<Statement>, Box<Statement>)
 }
 
 #[derive(PartialEq, Debug)]

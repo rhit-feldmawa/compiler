@@ -54,7 +54,7 @@ StatementWithElse: Box<Statement> = {
 }
 
 IfStatementWithElse: Box<IfStatement> = {
-    "if" "(" <e:Expression> ")" <s:StatementWithElse> "else" <s2:Statement> =>
+    "if" "(" <e:Expression> ")" <s:StatementWithElse> "else" <s2:StatementWithElse> =>
         Box::new(IfStatement::IfElseStmt(e, s, s2))
 }
 
@@ -66,11 +66,15 @@ CompoundStatement: Box<CompoundStatement> = {
 }
 
 IfStatement: Box<IfStatement> = {
-    "if" "(" <e:Expression> ")" <c:CompoundStatement> <f:IfFollow?> => match f {
-        None => Box::new(IfStatement::IfStmt(e, c)),
-        Some(s2) => Box::new(IfStatement::IfElseStmt(e, c, s2))
-    } 
+    "if" "(" <e:Expression> ")" <s:Statement> => Box::new(IfStatement::IfStmt(e, s)),
+    "if" "(" <e:Expression> ")" <c:StatementWithElse> "else" <s2:Statement> => Box::new(IfStatement::IfElseStmt(e, c, s2))
 }
+// IfStatement: Box<IfStatement> = {
+//     "if" "(" <e:Expression> ")" <c:CompoundStatement> <f:IfFollow?> => match f {
+//         None => Box::new(IfStatement::IfStmt(e, c)),
+//         Some(s2) => Box::new(IfStatement::IfElseStmt(e, c, s2))
+//     } 
+// }
 
 IfFollow: Box<CompoundStatement> = {
     "else" <s:CompoundStatement> => s
@@ -83,6 +87,12 @@ WhileStatement: Box<WhileStatement> = {
     })
 }
 
+WhileStatementWithElse: Box<WhileStatement> = {
+    "while" "(" <e:Expression> ")" <s:StatementWithElse> => Box::new(WhileStatement {
+        condition: e,
+        statement: s
+    })
+}
 // Expression: Box<Expression> = {
 //     <v:Var> "=" <e:Expression> => Box::new(Expression::Assignment(v, e)),
 //     <s:SimpleExpression> => s

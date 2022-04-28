@@ -33,8 +33,6 @@ mod tests {
         }
 ";
 
-    // Note that the body of an if statement must be a compound statement, so
-    // there is no ambiguity about which if an else goes with.
     static IF_TEST: &str = "
         int func() {
             if (a) {
@@ -44,6 +42,37 @@ mod tests {
             }
         }
 ";
+
+    static DANGLING_ELSE: &str = "
+        int func() {
+            if (a)
+                if (b)
+                    ;
+                else
+                    ;
+        }
+";
+
+    #[test]
+    fn dangling_else() {
+        let program = grammar::ProgramParser::new()
+            .parse(DANGLING_ELSE)
+            .unwrap();
+        assert_eq!(
+            *program.fun_declarations[0].body.statements[0],
+            Statement::IfStatement(Box::new(IfStatement::IfStmt(
+                Box::new(Expression::Var(
+                    Box::new(Var::Var("a".to_string()))
+                )),
+                Box::new(Statement::IfStatement(Box::new(IfStatement::IfElseStmt(
+                    Box::new(Expression::Var(
+                        Box::new(Var::Var("b".to_string()))
+                    )),
+                    Box::new(Statement::EmptyStatement),
+                    Box::new(Statement::EmptyStatement)
+                ))))
+        ))))
+    }
 
     #[test]
     fn assignment() {
@@ -80,18 +109,18 @@ mod tests {
             *program.fun_declarations[0].body.statements[0],
             Statement::IfStatement(Box::new(IfStatement::IfElseStmt(
                 Box::new(Expression::Var(Box::new(Var::Var("a".to_string())))),
-                Box::new(CompoundStatement {
+                Box::new(Statement::CompoundStatement(Box::new(CompoundStatement {
                     declarations: Vec::new(),
                     statements: vec![Box::new(Statement::ReturnStatement(Box::new(
                         Expression::IntegerLiteral(0)
                     )))]
-                }),
-                Box::new(CompoundStatement {
+                }))),
+                Box::new(Statement::CompoundStatement(Box::new(CompoundStatement {
                     declarations: Vec::new(),
                     statements: vec![Box::new(Statement::ReturnStatement(Box::new(
                         Expression::IntegerLiteral(1)
                     )))]
-                }),
+                }))),
             )))
         );
     }
