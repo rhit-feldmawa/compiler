@@ -41,7 +41,8 @@ Statement: Box<Statement> = {
     <c:CompoundStatement> => Box::new(Statement::CompoundStatement(c)),
     <i:IfStatement> => Box::new(Statement::IfStatement(i)),
     <w:WhileStatement> => Box::new(Statement::WhileStatement(w)),
-    "return" <e:Expression> ";" => Box::new(Statement::ReturnStatement(e))
+    "return" <e:Expression> ";" => Box::new(Statement::ReturnStatement(Option::Some(e))),
+    "return;" => Box::new(Statement::ReturnStatement(Option::None))
 }
 
 StatementWithElse: Box<Statement> = {
@@ -50,7 +51,8 @@ StatementWithElse: Box<Statement> = {
     <c:CompoundStatement> => Box::new(Statement::CompoundStatement(c)),
     <i:IfStatementWithElse> => Box::new(Statement::IfStatement(i)),
     <w:WhileStatementWithElse> => Box::new(Statement::WhileStatement(w)),
-    "return" <e:Expression> ";" => Box::new(Statement::ReturnStatement(e))
+    "return" <e:Expression> ";" => Box::new(Statement::ReturnStatement(Option::Some(e))),
+    "return;" => Box::new(Statement::ReturnStatement(Option::None))
 }
 
 IfStatementWithElse: Box<IfStatement> = {

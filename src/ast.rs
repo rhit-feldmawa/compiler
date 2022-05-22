@@ -32,7 +32,7 @@ pub enum Statement {
     CompoundStatement(Box<CompoundStatement>),
     IfStatement(Box<IfStatement>),
     WhileStatement(Box<WhileStatement>),
-    ReturnStatement(Box<Expression>),
+    ReturnStatement(Option<Box<Expression>>),
     EmptyStatement
 }
 

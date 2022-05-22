@@ -180,14 +180,17 @@ fn handle_statement(
             }
         }
         crate::ast::Statement::ReturnStatement(expression) => {
-            return match handle_expression(&expression, &symbol_table) {
-                HandleExpressionResult::Success(expression_result) => {
-                    if expression_result != ExpressionType::Int {
-                        return HandleStatementResult::Failure("Attempt to return a non-Int value".to_string())
-                    }
-                    HandleStatementResult::Success
+            match expression {
+                Option::Some(expression) => return match handle_expression(&expression, &symbol_table) {
+                    HandleExpressionResult::Success(expression_result) => {
+                        if expression_result != ExpressionType::Int {
+                            return HandleStatementResult::Failure("Attempt to return a non-Int value".to_string())
+                        }
+                        HandleStatementResult::Success
+                    },
+                    HandleExpressionResult::Failure(reason) => HandleStatementResult::Failure(reason),
                 },
-                HandleExpressionResult::Failure(reason) => HandleStatementResult::Failure(reason),
+                Option::None => {return HandleStatementResult::Success;}
             }
         }
         crate::ast::Statement::WhileStatement(while_statement) => {
