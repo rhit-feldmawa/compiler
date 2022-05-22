@@ -4,6 +4,7 @@ extern crate lalrpop_util;
 lalrpop_mod!(pub grammar); // synthesized by LALRPOP
 mod ast;
 mod symbol_table;
+mod symbol_table_ast;
 mod test;
 
 fn main() {

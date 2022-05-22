@@ -18,21 +18,21 @@ VarDeclaration: Box<VarDeclaration> = {
         Box::new(VarDeclaration::ArrDeclaration(t, i, s))
 }
 
-FunDeclaration: Box<FunctionDeclaration> = {
+FunDeclaration: FunctionDeclaration = {
     <r:IdentifierType> <n:Identifier> "(" <p: Comma<Param>> ")" <c:CompoundStatement> =>
-        Box::new(FunctionDeclaration {
+        FunctionDeclaration {
             return_type: r,
             function_name: n,
             params: p,
             body: c
-        })
+        }
 }
 
-Param: Box<Param> = {
+Param: Param = {
     <t:IdentifierType> <i:Identifier> =>
-        Box::new(Param::Var(t, i)),
+        Param::Var(t, i),
     <t:IdentifierType> <i:Identifier> "[]" =>
-        Box::new(Param::ArrVar(t, i))
+        Param::ArrVar(t, i)
 }
 
 Statement: Box<Statement> = {
@@ -170,12 +170,9 @@ FunctionCall: Box<FunctionCall> = {
     })
 }
 
-IdentifierType: Box<IdentifierType> = {
-    "int" => Box::new(IdentifierType::Int),
-    <l:@L> "void" => {
-        println!("{}", l);
-        Box::new(IdentifierType::Void)
-    }
+IdentifierType: IdentifierType = {
+    "int" => IdentifierType::Int,
+    "void" => IdentifierType::Void
 };
 
 Identifier: String = {

@@ -3,24 +3,24 @@ use std::fmt::{Debug};
 #[derive(PartialEq, Debug)]
 pub struct Program {
     pub var_declarations: Vec<Box<VarDeclaration>>,
-    pub fun_declarations: Vec<Box<FunctionDeclaration>>
+    pub fun_declarations: Vec<FunctionDeclaration>
 }
 
 #[derive(PartialEq, Debug)]
 pub struct FunctionDeclaration {
-    pub return_type: Box<IdentifierType>,
+    pub return_type: IdentifierType,
     pub function_name: String,
-    pub params: Vec<Box<Param>>,
+    pub params: Vec<Param>,
     pub body: Box<CompoundStatement>,
 }
 
 #[derive(PartialEq, Debug)]
 pub enum Param {
-    Var(Box<IdentifierType>, String),
-    ArrVar(Box<IdentifierType>, String)
+    Var(IdentifierType, String),
+    ArrVar(IdentifierType, String)
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Copy, Clone)]
 pub enum IdentifierType {
     Int,
     Void
@@ -44,8 +44,8 @@ pub struct CompoundStatement {
 
 #[derive(PartialEq, Debug)]
 pub enum VarDeclaration {
-    VarDeclaration(Box<IdentifierType>, String),
-    ArrDeclaration(Box<IdentifierType>, String, i32)
+    VarDeclaration(IdentifierType, String),
+    ArrDeclaration(IdentifierType, String, i32)
 }
 
 #[derive(PartialEq, Debug)]

@@ -59,7 +59,7 @@ mod tests {
             .parse(DANGLING_ELSE)
             .unwrap();
         assert_eq!(
-            *program.fun_declarations[0].body.statements[0],
+            program.fun_declarations[0].body.statements[0],
             Statement::IfStatement(Box::new(IfStatement::IfStmt(
                 Box::new(Expression::Var(
                     Box::new(Var::Var("a".to_string()))
@@ -80,7 +80,7 @@ mod tests {
             .parse(ASSIGNMENT_TEST)
             .unwrap();
         assert_eq!(
-            *program.fun_declarations[0].body.statements[0],
+            program.fun_declarations[0].body.statements[0],
             Statement::Expression(Box::new(Expression::Assignment(
                 Box::new(Var::Var("a".to_string())),
                 Box::new(Expression::IntegerLiteral(5))
@@ -92,7 +92,7 @@ mod tests {
     fn while_statement() {
         let program = grammar::ProgramParser::new().parse(WHILE_TEST).unwrap();
         assert_eq!(
-            *program.fun_declarations[0].body.statements[0],
+            program.fun_declarations[0].body.statements[0],
             Statement::WhileStatement(Box::new(WhileStatement {
                 condition: Box::new(Expression::Var(Box::new(Var::Var("a".to_string())))),
                 statement: Box::new(Statement::CompoundStatement(Box::new(CompoundStatement {
@@ -132,11 +132,11 @@ mod tests {
             .unwrap();
         assert_eq!(
             *program.var_declarations[0],
-            VarDeclaration::VarDeclaration(Box::new(IdentifierType::Int), "test".to_string())
+            VarDeclaration::VarDeclaration(IdentifierType::Int, "test".to_string())
         );
         assert_eq!(
             *program.var_declarations[1],
-            VarDeclaration::ArrDeclaration(Box::new(IdentifierType::Void), "test2".to_string(), 4)
+            VarDeclaration::ArrDeclaration(IdentifierType::Void, "test2".to_string(), 4)
         );
         assert_eq!(program.fun_declarations.len(), 0)
     }
@@ -203,14 +203,14 @@ mod tests {
             .unwrap();
         assert_eq!(program.var_declarations.len(), 0);
         assert_eq!(
-            *program.fun_declarations[0],
+            program.fun_declarations[0],
             FunctionDeclaration {
-                return_type: Box::new(IdentifierType::Int),
+                return_type: IdentifierType::Int,
                 function_name: "ident".to_string(),
-                params: vec![Box::new(Param::Var(
-                    Box::new(IdentifierType::Int),
+                params: vec![Param::Var(
+                    IdentifierType::Int,
                     "ab".to_string()
-                ))],
+                )],
                 body: Box::new(CompoundStatement {
                     declarations: Vec::new(),
                     statements: vec![]
@@ -218,16 +218,16 @@ mod tests {
             }
         );
         assert_eq!(
-            *program.fun_declarations[1],
+            program.fun_declarations[1],
             FunctionDeclaration {
-                return_type: Box::new(IdentifierType::Void),
+                return_type: IdentifierType::Void,
                 function_name: "ident2".to_string(),
                 params: vec![
-                    Box::new(Param::Var(Box::new(IdentifierType::Void), "a".to_string())),
-                    Box::new(Param::ArrVar(
-                        Box::new(IdentifierType::Int),
+                    Param::Var(IdentifierType::Void, "a".to_string()),
+                    Param::ArrVar(
+                        IdentifierType::Int,
                         "b".to_string()
-                    )),
+                    ),
                 ],
                 body: Box::new(CompoundStatement {
                     declarations: Vec::new(),
