@@ -46,6 +46,13 @@ pub enum Param {
     Arr(IdentifierType)
 }
 
+#[derive(PartialEq)]
+pub enum ExpressionType {
+    Array,
+    Int,
+    Void,
+}
+
 impl SymbolTable {
     pub fn symbol_lookup(&self, id: &str) -> Option<&SymbolTableElement> {
         match self.current_scope.get(id) {

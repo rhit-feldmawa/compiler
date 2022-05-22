@@ -4,6 +4,7 @@ mod tests {
         CompoundStatement, Expression, FunctionCall, FunctionDeclaration, IdentifierType,
         IfStatement, Operator, Param, Statement, Var, VarDeclaration, WhileStatement,
     };
+    use crate::symbol_table_ast::{typecheck_program, TypecheckProgramResult};
 
     lalrpop_mod!(pub grammar); // synthesized by LALRPOP
 
@@ -13,7 +14,7 @@ mod tests {
 
     static VAR_DECLARATIONS_TEST: &str = "
         int test;
-        void test2[4];
+        int test2[4];
     ";
 
     static FUN_DECLARATIONS_TEST: &str = "
@@ -58,9 +59,14 @@ mod tests {
         let program = grammar::ProgramParser::new()
             .parse(DANGLING_ELSE)
             .unwrap();
+        let isTypeCorrectly = typecheck_program(&program);
+        assert_eq!(
+            isTypeCorrectly,
+            TypecheckProgramResult::Success
+        );
         assert_eq!(
             program.fun_declarations[0].body.statements[0],
-            Statement::IfStatement(Box::new(IfStatement::IfStmt(
+            Box::new(Statement::IfStatement(Box::new(IfStatement::IfStmt(
                 Box::new(Expression::Var(
                     Box::new(Var::Var("a".to_string()))
                 )),
@@ -71,7 +77,7 @@ mod tests {
                     Box::new(Statement::EmptyStatement),
                     Box::new(Statement::EmptyStatement)
                 ))))
-        ))))
+        )))));
     }
 
     #[test]
@@ -81,10 +87,10 @@ mod tests {
             .unwrap();
         assert_eq!(
             program.fun_declarations[0].body.statements[0],
-            Statement::Expression(Box::new(Expression::Assignment(
+            Box::new(Statement::Expression(Box::new(Expression::Assignment(
                 Box::new(Var::Var("a".to_string())),
                 Box::new(Expression::IntegerLiteral(5))
-            )))
+            ))))
         );
     }
 
@@ -93,13 +99,13 @@ mod tests {
         let program = grammar::ProgramParser::new().parse(WHILE_TEST).unwrap();
         assert_eq!(
             program.fun_declarations[0].body.statements[0],
-            Statement::WhileStatement(Box::new(WhileStatement {
+            Box::new(Statement::WhileStatement(Box::new(WhileStatement {
                 condition: Box::new(Expression::Var(Box::new(Var::Var("a".to_string())))),
                 statement: Box::new(Statement::CompoundStatement(Box::new(CompoundStatement {
                     declarations: Vec::new(),
                     statements: Vec::new()
                 })))
-            }))
+            })))
         );
     }
     #[test]
@@ -131,11 +137,11 @@ mod tests {
             .parse(VAR_DECLARATIONS_TEST)
             .unwrap();
         assert_eq!(
-            *program.var_declarations[0],
+            program.var_declarations[0],
             VarDeclaration::VarDeclaration(IdentifierType::Int, "test".to_string())
         );
         assert_eq!(
-            *program.var_declarations[1],
+            program.var_declarations[1],
             VarDeclaration::ArrDeclaration(IdentifierType::Void, "test2".to_string(), 4)
         );
         assert_eq!(program.fun_declarations.len(), 0)

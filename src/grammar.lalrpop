@@ -11,11 +11,11 @@ pub Program: Box<Program> = {
     })
 }
 
-VarDeclaration: Box<VarDeclaration> = {
+VarDeclaration: VarDeclaration = {
     <t:IdentifierType> <i:Identifier> ";" =>
-        Box::new(VarDeclaration::VarDeclaration(t, i)),
+        VarDeclaration::VarDeclaration(t, i),
     <t:IdentifierType> <i:Identifier> "[" <s:Num> "];" =>
-        Box::new(VarDeclaration::ArrDeclaration(t, i, s))
+        VarDeclaration::ArrDeclaration(t, i, s)
 }
 
 FunDeclaration: FunctionDeclaration = {

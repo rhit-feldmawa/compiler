@@ -2,7 +2,7 @@ use std::fmt::{Debug};
 
 #[derive(PartialEq, Debug)]
 pub struct Program {
-    pub var_declarations: Vec<Box<VarDeclaration>>,
+    pub var_declarations: Vec<VarDeclaration>,
     pub fun_declarations: Vec<FunctionDeclaration>
 }
 
@@ -38,7 +38,7 @@ pub enum Statement {
 
 #[derive(PartialEq, Debug)]
 pub struct CompoundStatement {
-    pub declarations: Vec<Box<VarDeclaration>>,
+    pub declarations: Vec<VarDeclaration>,
     pub statements: Vec<Box<Statement>>
 }
 
