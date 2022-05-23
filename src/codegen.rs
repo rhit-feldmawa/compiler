@@ -9,14 +9,13 @@ use std::ffi::CString;
 static mut RET_BLOCK: Option<prelude::LLVMBasicBlockRef> = Option::None;
 static mut RET_VAL: Option<prelude::LLVMValueRef> = Option::None;
 
-pub fn codegen(program: Program, file_name: &str) {
+pub fn codegen(program: &Program, file_name: &str) {
     unsafe {
         let context = LLVMContextCreate();
-        let module = LLVMModuleCreateWithNameInContext(file_name.as_ptr() as *const _, context);
+        let module = LLVMModuleCreateWithNameInContext(to_c_string(file_name), context);
         let builder = LLVMCreateBuilderInContext(context);
         let int_type = LLVMInt32Type();
         let mut functions: HashMap<String, prelude::LLVMValueRef> = HashMap::new();
-        // let mut namedValues: HashMap<String, prelude::LLVMValueRef> = HashMap::new();
         let mut named_values = Table {
             scope: HashMap::new(),
             parent: Option::None,
@@ -27,16 +26,25 @@ pub fn codegen(program: Program, file_name: &str) {
                     LLVMAddGlobal(
                         module,
                         LLVMArrayType(int_type, *size as u32),
-                        name.as_ptr() as *const _,
+                        to_c_string(name),
                     );
                     let g_var = LLVMGetNamedGlobal(module, to_c_string(&name));
                     LLVMSetLinkage(g_var, LLVMLinkage::LLVMCommonLinkage);
+                    let zero = LLVMConstInt(LLVMInt32Type(), 0, 0);
+                    let mut array = Vec::new();
+                    let mut i = 0;
+                    while i < *size {
+                        array.push(zero);
+                        i = i + 1;
+                    }
+                    LLVMSetInitializer(g_var, LLVMConstArray(LLVMInt32Type(), array.as_mut_ptr(), *size as u32));
                     named_values.insert(name.clone(), g_var);
                 }
                 VarDeclaration::VarDeclaration(_, name) => {
                     LLVMAddGlobal(module, int_type, to_c_string(&name));
                     let g_var = LLVMGetNamedGlobal(module, to_c_string(&name));
                     LLVMSetLinkage(g_var, LLVMLinkage::LLVMCommonLinkage);
+                    LLVMSetInitializer(g_var, LLVMConstInt(LLVMInt32Type(), 0, 0));
                     named_values.insert(name.clone(), g_var);
                 }
             }
@@ -102,6 +110,11 @@ pub fn codegen(program: Program, file_name: &str) {
                 }
                 j = j + 1;
             }
+            RET_VAL = Option::Some(LLVMBuildAlloca(
+                builder,
+                LLVMInt32Type(),
+                to_c_string("ret_value"),
+            ));
             named_values = codegen_compount_statement(
                 builder,
                 &function.body,
@@ -112,26 +125,48 @@ pub fn codegen(program: Program, file_name: &str) {
             );
             match RET_BLOCK {
                 Option::Some(block) => {
-                    LLVMAppendExistingBasicBlock(*functions.get_mut(&function.function_name).unwrap(), block);
+                    if LLVMGetBasicBlockTerminator(LLVMGetLastBasicBlock(
+                        *functions.get_mut(&function.function_name).unwrap(),
+                    )).is_null()
+                    {
+                        LLVMBuildBr(builder, block);
+                    }
+                    LLVMAppendExistingBasicBlock(
+                        *functions.get_mut(&function.function_name).unwrap(),
+                        block,
+                    );
                     LLVMPositionBuilderAtEnd(builder, block);
                     match RET_VAL {
                         Option::Some(val) => {
-                            let val_v = LLVMBuildLoad2(builder, LLVMInt32Type(), val, to_c_string("ret_val"));
+                            let val_v = LLVMBuildLoad2(
+                                builder,
+                                LLVMInt32Type(),
+                                val,
+                                to_c_string("ret_val"),
+                            );
                             LLVMBuildRet(builder, val_v);
-                        },
+                        }
                         Option::None => {
                             LLVMBuildRetVoid(builder);
                         }
                     }
-                },
+                }
                 Option::None => {
                     LLVMBuildRetVoid(builder);
                 }
             }
+            RET_VAL = Option::None;
+            RET_BLOCK = Option::None;
             i = i + 1;
             named_values = *named_values.parent.unwrap();
         }
         LLVMDumpModule(module);
+        // analysis::LLVMVerifyModule(
+        //     module,
+        //     analysis::LLVMVerifierFailureAction::LLVMPrintMessageAction,
+        //     Box::into_raw(Box::new("")) as *mut *mut i8,
+        // );
+        bit_writer::LLVMWriteBitcodeToFile(module, to_c_string("out.bc"));
     }
 }
 
@@ -206,11 +241,6 @@ unsafe fn codegen_statement(
                         LLVMBuildBr(builder, block);
                     }
                     Option::None => {
-                        RET_VAL = Option::Some(LLVMBuildAlloca(
-                            builder,
-                            LLVMInt32Type(),
-                            to_c_string("ret_value"),
-                        ));
                         RET_BLOCK = Option::Some(LLVMCreateBasicBlockInContext(
                             context,
                             to_c_string("ret_block"),
@@ -240,11 +270,18 @@ unsafe fn codegen_statement(
                     *functions.get_mut(function).unwrap(),
                     to_c_string("then_block"),
                 );
-                let merge_block = LLVMCreateBasicBlockInContext(context, to_c_string("merge_block"));
+                let merge_block =
+                    LLVMCreateBasicBlockInContext(context, to_c_string("merge_block"));
                 LLVMBuildCondBr(builder, cond_v, then_block, merge_block);
                 LLVMPositionBuilderAtEnd(builder, then_block);
-                named_values = codegen_statement(builder, stmt, named_values, functions, context, function);
-                LLVMBuildBr(builder, merge_block);
+                named_values =
+                    codegen_statement(builder, stmt, named_values, functions, context, function);
+                if LLVMGetBasicBlockTerminator(LLVMGetLastBasicBlock(
+                    *functions.get_mut(function).unwrap(),
+                )).is_null()
+                {
+                    LLVMBuildBr(builder, merge_block);
+                }
                 LLVMAppendExistingBasicBlock(*functions.get_mut(function).unwrap(), merge_block);
                 LLVMPositionBuilderAtEnd(builder, merge_block);
             }
@@ -255,14 +292,28 @@ unsafe fn codegen_statement(
                     to_c_string("then_block"),
                 );
                 let else_block = LLVMCreateBasicBlockInContext(context, to_c_string("else_block"));
-                let merge_block = LLVMCreateBasicBlockInContext(context, to_c_string("merge_block"));
+                let merge_block =
+                    LLVMCreateBasicBlockInContext(context, to_c_string("merge_block"));
                 LLVMBuildCondBr(builder, cond_v, then_block, else_block);
                 LLVMPositionBuilderAtEnd(builder, then_block);
-                named_values = codegen_statement(builder, stmt1, named_values, functions, context, function);
-                LLVMBuildBr(builder, merge_block);
+                named_values =
+                    codegen_statement(builder, stmt1, named_values, functions, context, function);
+                if LLVMGetBasicBlockTerminator(LLVMGetLastBasicBlock(
+                    *functions.get_mut(function).unwrap(),
+                )).is_null()
+                {
+                    LLVMBuildBr(builder, merge_block);
+                }
                 LLVMAppendExistingBasicBlock(*functions.get_mut(function).unwrap(), else_block);
                 LLVMPositionBuilderAtEnd(builder, else_block);
-                named_values = codegen_statement(builder, stmt2, named_values, functions, context, function);
+                named_values =
+                    codegen_statement(builder, stmt2, named_values, functions, context, function);
+                if LLVMGetBasicBlockTerminator(LLVMGetLastBasicBlock(
+                    *functions.get_mut(function).unwrap(),
+                )).is_null()
+                {
+                    LLVMBuildBr(builder, merge_block);
+                }
                 LLVMAppendExistingBasicBlock(*functions.get_mut(function).unwrap(), merge_block);
                 LLVMPositionBuilderAtEnd(builder, merge_block);
             }
@@ -270,7 +321,7 @@ unsafe fn codegen_statement(
         Statement::WhileStatement(stmt) => {
             let cond_block = LLVMAppendBasicBlock(
                 *functions.get_mut(function).unwrap(),
-                to_c_string("cond_block")
+                to_c_string("cond_block"),
             );
             let loop_block = LLVMAppendBasicBlock(
                 *functions.get_mut(function).unwrap(),
@@ -282,8 +333,20 @@ unsafe fn codegen_statement(
             LLVMBuildCondBr(builder, cond_v, loop_block, merge_block);
             LLVMAppendExistingBasicBlock(*functions.get_mut(function).unwrap(), loop_block);
             LLVMPositionBuilderAtEnd(builder, loop_block);
-            named_values = codegen_statement(builder, &stmt.statement, named_values, functions, context, function);
-            LLVMBuildBr(builder, cond_block);
+            named_values = codegen_statement(
+                builder,
+                &stmt.statement,
+                named_values,
+                functions,
+                context,
+                function,
+            );
+            if LLVMGetBasicBlockTerminator(LLVMGetLastBasicBlock(
+                *functions.get_mut(function).unwrap(),
+            )).is_null()
+            {
+                LLVMBuildBr(builder, cond_block);
+            }
             LLVMAppendExistingBasicBlock(*functions.get_mut(function).unwrap(), merge_block);
             LLVMPositionBuilderAtEnd(builder, merge_block);
         }
@@ -373,7 +436,7 @@ unsafe fn codegen_expression(
                         LLVMInt32Type(),
                         named_values.get(&name),
                         indicies.as_mut_ptr(),
-                        2,
+                        1,
                         to_c_string("array_access"),
                     );
                     LLVMBuildStore(builder, rhs_v, lhs_v)
@@ -386,13 +449,13 @@ unsafe fn codegen_expression(
                 let zero = LLVMConstInt(LLVMInt32Type(), 0, 0);
                 let mut indicies: Vec<prelude::LLVMValueRef> = Vec::new();
                 indicies.push(zero);
-                indicies.push(index_v);
+                indicies.push(zero);
                 let ptr = LLVMBuildInBoundsGEP2(
                     builder,
                     LLVMInt32Type(),
                     named_values.get(&name),
                     indicies.as_mut_ptr(),
-                    2,
+                    1,
                     to_c_string("array_access"),
                 );
                 return LLVMBuildLoad2(builder, LLVMInt32Type(), ptr, to_c_string("temp_var_load"));

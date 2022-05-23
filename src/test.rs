@@ -5,6 +5,7 @@ mod tests {
         IfStatement, Operator, Param, Statement, Var, VarDeclaration, WhileStatement,
     };
     use crate::typecheck::{typecheck_program, TypecheckProgramResult};
+    use crate::codegen::{codegen};
 
     lalrpop_mod!(pub grammar); // synthesized by LALRPOP
 
@@ -18,24 +19,29 @@ mod tests {
     ";
 
     static FUN_DECLARATIONS_TEST: &str = "
-        int ident(int ab) {}
-        void ident2(void a, int b[]) {}
+        int ident(int ab) {
+        }
+        void ident2(int a, int b) {
+        }
     ";
 
     static ASSIGNMENT_TEST: &str = "
         int func() {
+            int a;
             a = 5;
         }
 ";
 
     static WHILE_TEST: &str = "
         int func() {
+            int a;
             while (a) {}
         }
 ";
 
     static IF_TEST: &str = "
         int func() {
+            int a;
             if (a) {
                 return 0;
             } else {
@@ -66,6 +72,7 @@ mod tests {
             is_typed_correctly,
             TypecheckProgramResult::Success
         );
+        codegen(&program, "dangling_else");
         assert_eq!(
             program.fun_declarations[0].body.statements[0],
             Box::new(Statement::IfStatement(Box::new(IfStatement::IfStmt(
@@ -87,6 +94,7 @@ mod tests {
         let program = grammar::ProgramParser::new()
             .parse(ASSIGNMENT_TEST)
             .unwrap();
+        codegen(&program, "assignment");
         assert_eq!(
             program.fun_declarations[0].body.statements[0],
             Box::new(Statement::Expression(Box::new(Expression::Assignment(
@@ -99,6 +107,7 @@ mod tests {
     #[test]
     fn while_statement() {
         let program = grammar::ProgramParser::new().parse(WHILE_TEST).unwrap();
+        codegen(&program, "while_statement");
         assert_eq!(
             program.fun_declarations[0].body.statements[0],
             Box::new(Statement::WhileStatement(Box::new(WhileStatement {
@@ -113,6 +122,7 @@ mod tests {
     #[test]
     fn if_statement() {
         let program = grammar::ProgramParser::new().parse(IF_TEST).unwrap();
+        codegen(&program, "if_statement");
         assert_eq!(
             *program.fun_declarations[0].body.statements[0],
             Statement::IfStatement(Box::new(IfStatement::IfElseStmt(
@@ -138,6 +148,7 @@ mod tests {
         let program = grammar::ProgramParser::new()
             .parse(VAR_DECLARATIONS_TEST)
             .unwrap();
+        // codegen(&program, "var_declarations");
         assert_eq!(
             program.var_declarations[0],
             VarDeclaration::VarDeclaration(IdentifierType::Int, "test".to_string())
@@ -231,8 +242,8 @@ mod tests {
                 return_type: IdentifierType::Void,
                 function_name: "ident2".to_string(),
                 params: vec![
-                    Param::Var(IdentifierType::Void, "a".to_string()),
-                    Param::ArrVar(
+                    Param::Var(IdentifierType::Int, "a".to_string()),
+                    Param::Var(
                         IdentifierType::Int,
                         "b".to_string()
                     ),

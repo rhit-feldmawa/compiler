@@ -1,9 +1,7 @@
 int a;
-int func() {
-    int b;
-    if (a)
-        if (b)
-            return a+b;
-        else
-            return b;
+int main() {
+    if (a == 1) {
+        return 6;
+    }
+    return 7;
 }
