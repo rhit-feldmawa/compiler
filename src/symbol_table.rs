@@ -8,10 +8,6 @@ pub struct SymbolTable {
     pub depth: i32
 }
 
-pub struct ImmutableSymbolTable {
-
-}
-
 pub enum SymbolTableElement {
     Variable(VariableSymbolTableElement),
     Array(ArraySymbolTableElement),

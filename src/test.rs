@@ -4,7 +4,7 @@ mod tests {
         CompoundStatement, Expression, FunctionCall, FunctionDeclaration, IdentifierType,
         IfStatement, Operator, Param, Statement, Var, VarDeclaration, WhileStatement,
     };
-    use crate::symbol_table_ast::{typecheck_program, TypecheckProgramResult};
+    use crate::typecheck::{typecheck_program, TypecheckProgramResult};
 
     lalrpop_mod!(pub grammar); // synthesized by LALRPOP
 
@@ -45,7 +45,9 @@ mod tests {
 ";
 
     static DANGLING_ELSE: &str = "
+        int a;
         int func() {
+            int b;
             if (a)
                 if (b)
                     ;
@@ -59,9 +61,9 @@ mod tests {
         let program = grammar::ProgramParser::new()
             .parse(DANGLING_ELSE)
             .unwrap();
-        let isTypeCorrectly = typecheck_program(&program);
+        let is_typed_correctly = typecheck_program(&program);
         assert_eq!(
-            isTypeCorrectly,
+            is_typed_correctly,
             TypecheckProgramResult::Success
         );
         assert_eq!(
@@ -117,15 +119,15 @@ mod tests {
                 Box::new(Expression::Var(Box::new(Var::Var("a".to_string())))),
                 Box::new(Statement::CompoundStatement(Box::new(CompoundStatement {
                     declarations: Vec::new(),
-                    statements: vec![Box::new(Statement::ReturnStatement(Box::new(
+                    statements: vec![Box::new(Statement::ReturnStatement(Option::Some(Box::new(
                         Expression::IntegerLiteral(0)
-                    )))]
+                    ))))]
                 }))),
                 Box::new(Statement::CompoundStatement(Box::new(CompoundStatement {
                     declarations: Vec::new(),
-                    statements: vec![Box::new(Statement::ReturnStatement(Box::new(
+                    statements: vec![Box::new(Statement::ReturnStatement(Option::Some(Box::new(
                         Expression::IntegerLiteral(1)
-                    )))]
+                    ))))]
                 }))),
             )))
         );
@@ -142,7 +144,7 @@ mod tests {
         );
         assert_eq!(
             program.var_declarations[1],
-            VarDeclaration::ArrDeclaration(IdentifierType::Void, "test2".to_string(), 4)
+            VarDeclaration::ArrDeclaration(IdentifierType::Int, "test2".to_string(), 4)
         );
         assert_eq!(program.fun_declarations.len(), 0)
     }

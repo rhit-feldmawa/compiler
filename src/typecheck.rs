@@ -1,7 +1,4 @@
-use crate::ast::{
-    CompoundStatement, Expression, FunctionCall, FunctionDeclaration, IdentifierType, IfStatement,
-    Operator, Program, Statement, Var, VarDeclaration, WhileStatement,
-};
+use crate::ast::{Expression, FunctionCall, IdentifierType, Var, VarDeclaration};
 use crate::symbol_table::{
     get_child_table, ArraySymbolTableElement, ExpressionType, FunctionSymbolTableElement, Param,
     ParameterArraySymbolTableElement, SymbolTable, SymbolTableElement, VariableSymbolTableElement,
@@ -46,14 +43,14 @@ fn handle_variable_declarations(
         let element;
         let name;
         match &declaration {
-            VarDeclaration::VarDeclaration(identifier_type, p_name) => {
+            VarDeclaration::VarDeclaration(_, p_name) => {
                 element = SymbolTableElement::Variable(VariableSymbolTableElement {
                     element_type: IdentifierType::Int,
                     depth: 0,
                 });
                 name = p_name;
             }
-            VarDeclaration::ArrDeclaration(identifier_type, p_name, size) => {
+            VarDeclaration::ArrDeclaration(_, p_name, size) => {
                 element = SymbolTableElement::Array(ArraySymbolTableElement {
                     element_type: IdentifierType::Int,
                     size: *size,
@@ -179,30 +176,38 @@ fn handle_statement(
                 }
             }
         }
-        crate::ast::Statement::ReturnStatement(expression) => {
-            match expression {
-                Option::Some(expression) => return match handle_expression(&expression, &symbol_table) {
+        crate::ast::Statement::ReturnStatement(expression) => match expression {
+            Option::Some(expression) => {
+                return match handle_expression(&expression, &symbol_table) {
                     HandleExpressionResult::Success(expression_result) => {
                         if expression_result != ExpressionType::Int {
-                            return HandleStatementResult::Failure("Attempt to return a non-Int value".to_string())
+                            return HandleStatementResult::Failure(
+                                "Attempt to return a non-Int value".to_string(),
+                            );
                         }
                         HandleStatementResult::Success
-                    },
-                    HandleExpressionResult::Failure(reason) => HandleStatementResult::Failure(reason),
-                },
-                Option::None => {return HandleStatementResult::Success;}
+                    }
+                    HandleExpressionResult::Failure(reason) => {
+                        HandleStatementResult::Failure(reason)
+                    }
+                }
             }
-        }
+            Option::None => {
+                return HandleStatementResult::Success;
+            }
+        },
         crate::ast::Statement::WhileStatement(while_statement) => {
             match handle_expression(&while_statement.condition, &symbol_table) {
                 HandleExpressionResult::Success(expression_type) => {
                     match handle_statement(&while_statement.statement, symbol_table) {
                         HandleStatementResult::Success => {
                             if expression_type != ExpressionType::Int {
-                                return HandleStatementResult::Failure("Use of non-Int in while statement condition".to_string())
+                                return HandleStatementResult::Failure(
+                                    "Use of non-Int in while statement condition".to_string(),
+                                );
                             }
                             HandleStatementResult::Success
-                        },
+                        }
                         HandleStatementResult::Failure(reason) => {
                             HandleStatementResult::Failure(reason)
                         }
@@ -218,10 +223,12 @@ fn handle_statement(
                         match handle_statement(&statement, symbol_table) {
                             HandleStatementResult::Success => {
                                 if expression_type != ExpressionType::Int {
-                                    return HandleStatementResult::Failure("Use of non-Int in if statement condition".to_string())
+                                    return HandleStatementResult::Failure(
+                                        "Use of non-Int in if statement condition".to_string(),
+                                    );
                                 }
                                 HandleStatementResult::Success
-                            },
+                            }
                             HandleStatementResult::Failure(reason) => {
                                 HandleStatementResult::Failure(reason)
                             }
@@ -240,7 +247,10 @@ fn handle_statement(
                                 match handle_statement(&statement2, symbol_table) {
                                     HandleStatementResult::Success => {
                                         if expression_type != ExpressionType::Int {
-                                            return HandleStatementResult::Failure("Use of non-Int in if statement condition".to_string())
+                                            return HandleStatementResult::Failure(
+                                                "Use of non-Int in if statement condition"
+                                                    .to_string(),
+                                            );
                                         }
                                         HandleStatementResult::Success
                                     }
@@ -285,16 +295,14 @@ fn handle_expression(
         Expression::Assignment(var, expression) => {
             handle_assignment(&var, &expression, symbol_table)
         }
-        Expression::Operation(expression, operator, expression2) => {
-            handle_operation(&expression, operator, &expression2, symbol_table)
+        Expression::Operation(expression, _, expression2) => {
+            handle_operation(&expression, &expression2, symbol_table)
         }
         Expression::Var(var) => match handle_var(&var, symbol_table) {
             HandleVarResult::Success(expression_type) => {
                 HandleExpressionResult::Success(expression_type)
             }
-            HandleVarResult::Failure(reason) => {
-                HandleExpressionResult::Failure(reason)
-            }
+            HandleVarResult::Failure(reason) => HandleExpressionResult::Failure(reason),
         },
         Expression::Call(function_call) => handle_function_call(&function_call, symbol_table),
         Expression::IntegerLiteral(_) => HandleExpressionResult::Success(ExpressionType::Int),
@@ -316,14 +324,32 @@ fn handle_function_call(
         _ => return HandleExpressionResult::Failure("Attempt to call non-function".to_string()),
     };
     match function_call {
-        FunctionCall { name, args } => {
+        FunctionCall { name: _, args } => {
             let mut len = 0;
             for arg in args {
                 match handle_expression(&arg, symbol_table) {
                     HandleExpressionResult::Failure(reason) => {
                         return HandleExpressionResult::Failure(reason)
                     }
-                    HandleExpressionResult::Success(expression_type) => {}
+                    HandleExpressionResult::Success(expression_type) => {
+                        match function.argument_types[len] {
+                            Param::Var(_) => {
+                                if expression_type != ExpressionType::Int {
+                                    return HandleExpressionResult::Failure(
+                                        "Attempted to pass non-int, but int was expected"
+                                            .to_string(),
+                                    );
+                                }
+                            }
+                            Param::Arr(_) => {
+                                if expression_type != ExpressionType::Array {
+                                    return HandleExpressionResult::Failure(
+                                        "Attempted to pass int, but array was expected".to_string(),
+                                    );
+                                }
+                            }
+                        }
+                    }
                 }
                 len = len + 1;
             }
@@ -342,7 +368,6 @@ fn handle_function_call(
 
 fn handle_operation(
     expression1: &Expression,
-    operator: &Operator,
     expression2: &Expression,
     symbol_table: &Arc<SymbolTable>,
 ) -> HandleExpressionResult {

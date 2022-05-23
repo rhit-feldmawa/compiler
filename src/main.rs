@@ -4,13 +4,14 @@ extern crate lalrpop_util;
 lalrpop_mod!(pub grammar); // synthesized by LALRPOP
 mod ast;
 mod symbol_table;
-mod symbol_table_ast;
+mod typecheck;
 mod test;
 mod codegen;
 
 use std::env;
 use std::fs;
-use crate::symbol_table_ast::{typecheck_program};
+use crate::typecheck::{typecheck_program, TypecheckProgramResult};
+use crate::codegen::{codegen};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -18,6 +19,14 @@ fn main() {
     let contents = fs::read_to_string(file_path).unwrap();
     let program = grammar::ProgramParser::new().parse(&contents).unwrap();
     let typecheck_result = typecheck_program(&program);
+    match typecheck_result {
+        TypecheckProgramResult::Success => {
+            codegen(*program, file_path);
+        },
+        TypecheckProgramResult::Failure(reason) => {
+            println!("Error: {}", reason);
+        }
+    }
     // println!("{:?}", tree);
     // println!("{}", *identifier_type);
 }
